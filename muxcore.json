@@ -1,0 +1,16 @@
+{
+  "name": "Tracing OTLP",
+  "description": "In-memory tracing provider that logs completed spans via slog.",
+  "version": "0.1.0",
+  "author": "MuxCore Contributors",
+  "roles": [],
+  "capabilities": ["tracing"],
+  "contracts": [
+    {
+      "repo": "github.com/Muxcore-Media/core/pkg/contracts",
+      "interface": "TracingProvider",
+      "version": "v0.4.0"
+    }
+  ],
+  "minCoreVersion": "0.4.0"
+}
