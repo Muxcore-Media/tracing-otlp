@@ -4,9 +4,9 @@
 [![Go Version](https://img.shields.io/badge/Go-1.26-blue)](https://go.dev/)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
 
-**In-memory tracing provider that logs completed spans via slog.**
+**Tracing provider with OTLP export via OpenTelemetry, and slog fallback when no collector is configured.**
 
-A MuxCore sidecar module that implements the TracingProvider contract. Spans are stored in-memory and logged when EndSpan is called. No external collector is needed.
+A MuxCore sidecar module that implements the TracingProvider contract. Spans are held in memory while active. When `OTEL_EXPORTER_OTLP_ENDPOINT` is set, completed spans are exported over OTLP/gRPC. When unset, EndSpan logs via slog.
 
 ---
 
@@ -15,18 +15,20 @@ A MuxCore sidecar module that implements the TracingProvider contract. Spans are
 ```
 Client request ──→ tracing-otlp ──→ muxcored
                      │
-                     ▼
-           Stores span in memory,
-           logs on EndSpan
+                     ├─ OTEL_EXPORTER_OTLP_ENDPOINT set
+                     │     → OTLP/gRPC exporter (OpenTelemetry SDK)
+                     │
+                     └─ endpoint unset
+                           → slog on EndSpan
 ```
 
 ### Key concept 1
 
-StartSpan creates a span with a unique ID and trace ID, stored in an in-memory map. Attributes and status can be set during the span's lifetime.
+StartSpan creates a span with a unique ID and trace ID, stored in an in-memory map. Attributes and status can be set during the span's lifetime. With OTLP enabled, the OpenTelemetry SDK owns the IDs.
 
 ### Key concept 2
 
-EndSpan logs the complete span (ID, trace ID, name, attributes, status) via slog and removes it from the store.
+EndSpan completes the span: exports via OTLP when a tracer is configured, otherwise logs the span (ID, trace ID, name, attributes, status) via slog and removes it from the store.
 
 ---
 
@@ -44,8 +46,10 @@ EndSpan logs the complete span (ID, trace ID, name, attributes, status) via slog
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `TRACING_GRPC_ADDR` | `:9610` | Module gRPC listen address |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | – | OTLP collector endpoint (e.g. `localhost:4317`). When unset, spans are logged via slog |
+| `OTEL_EXPORTER_OTLP_INSECURE` | – | Allow insecure gRPC to the collector (dev) |
 | `MUXCORE_GRPC_ADDR` | – | Core gRPC address |
-| `MUXCORE_GRPC_INSECURE` | – | Disable TLS (dev mode) |
+| `MUXCORE_INSECURE_DISABLE_TLS` | – | Disable TLS (dev mode) |
 | `MUXCORE_MODULE_ID` | `tracing-otlp` | Module identity |
 
 ---
@@ -56,8 +60,13 @@ EndSpan logs the complete span (ID, trace ID, name, attributes, status) via slog
 # Build
 make build
 
-# Run against local core (dev mode)
+# Run against local core (dev mode, slog fallback)
 export MUXCORE_INSECURE_DISABLE_TLS=true
+./tracing-otlp --muxcore-mesh-addr localhost:9090
+
+# Run with OTLP export to a local collector
+export OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4317
+export OTEL_EXPORTER_OTLP_INSECURE=true
 ./tracing-otlp --muxcore-mesh-addr localhost:9090
 ```
 
@@ -71,6 +80,9 @@ export MUXCORE_INSECURE_DISABLE_TLS=true
 make docker
 docker run -d --restart=unless-stopped \
   -e MUXCORE_GRPC_ADDR=core:9090 \
+  -e MUXCORE_INSECURE_DISABLE_TLS=true \
+  -e OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317 \
+  -e OTEL_EXPORTER_OTLP_INSECURE=true \
   ghcr.io/muxcore-media/tracing-otlp:latest
 ```
 
@@ -93,27 +105,22 @@ sudo systemctl enable --now muxcore-module
 ## Development
 
 ```bash
-make dev      # run in dev mode
 make test     # run tests
 make lint     # golangci-lint
 make fmt      # format code
-```
-
-### Integration Tests
-
-```bash
-# Start core in dev mode, then:
-MUXCORE_GRPC_ADDR=localhost:9090 go test -tags=integration -race -count=1 ./test/
+make ci       # lint + test + build
 ```
 
 ---
 
 ## Implementation
 
-- Registers with capabilities: `"tracing"`
-- Implements `contracts.TracingProvider`
+- Registers with capabilities: `"tracing"`, `"tracing.otlp"`
+- Declares `contracts.TracingProvider`; serves gRPC `TracingService` (StartSpan, SetAttribute, SetStatus, EndSpan)
 - In-memory span storage with `sync.Mutex` thread safety
-- Span IDs generated via `crypto/rand`
+- OTLP/gRPC export via OpenTelemetry SDK when `OTEL_EXPORTER_OTLP_ENDPOINT` is set
+- slog fallback when the endpoint is unset
+- Span IDs: OpenTelemetry when exporting; `crypto/rand` in slog mode
 
 ---
 
