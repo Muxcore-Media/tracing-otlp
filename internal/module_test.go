@@ -153,10 +153,94 @@ func TestModuleLifecycle(t *testing.T) {
 	if err := m.Init(ctx); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
+	if m.tracer != nil || m.tp != nil {
+		t.Error("expected slog fallback when OTEL_EXPORTER_OTLP_ENDPOINT unset")
+	}
 	if err := m.Start(ctx); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	if err := m.Stop(ctx); err != nil {
 		t.Fatalf("Stop: %v", err)
+	}
+}
+
+func TestSlogFallbackEndSpan(t *testing.T) {
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+	m := NewModule(testConfig())
+	ctx := context.Background()
+	if err := m.Init(ctx); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	defer func() { _ = m.Stop(ctx) }()
+
+	resp, err := m.StartSpan(ctx, &tracingv1.StartSpanRequest{
+		Name:       "slog-span",
+		Attributes: map[string]string{"k": "v"},
+	})
+	if err != nil {
+		t.Fatalf("StartSpan: %v", err)
+	}
+	if m.tracer != nil {
+		t.Fatal("expected nil tracer in slog mode")
+	}
+
+	_, err = m.SetStatus(ctx, &tracingv1.SetStatusRequest{
+		SpanId:      resp.SpanId,
+		Code:        0,
+		Description: "ok",
+	})
+	if err != nil {
+		t.Fatalf("SetStatus: %v", err)
+	}
+	_, err = m.EndSpan(ctx, &tracingv1.EndSpanRequest{SpanId: resp.SpanId})
+	if err != nil {
+		t.Fatalf("EndSpan: %v", err)
+	}
+}
+
+func TestOTLPInit(t *testing.T) {
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317")
+	t.Setenv("OTEL_EXPORTER_OTLP_INSECURE", "true")
+	m := NewModule(testConfig())
+	ctx := context.Background()
+	if err := m.Init(ctx); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	defer func() { _ = m.Stop(ctx) }()
+
+	if m.tracer == nil || m.tp == nil {
+		t.Fatal("expected OTLP tracer when OTEL_EXPORTER_OTLP_ENDPOINT is set")
+	}
+
+	resp, err := m.StartSpan(ctx, &tracingv1.StartSpanRequest{Name: "otlp-span"})
+	if err != nil {
+		t.Fatalf("StartSpan: %v", err)
+	}
+	if len(resp.SpanId) != 16 {
+		t.Errorf("expected 16-char hex span id from OTEL, got %q", resp.SpanId)
+	}
+	if len(resp.TraceId) != 32 {
+		t.Errorf("expected 32-char hex trace id from OTEL, got %q", resp.TraceId)
+	}
+
+	_, err = m.SetAttribute(ctx, &tracingv1.SetAttributeRequest{
+		SpanId: resp.SpanId,
+		Key:    "component",
+		Value:  "test",
+	})
+	if err != nil {
+		t.Fatalf("SetAttribute: %v", err)
+	}
+	_, err = m.SetStatus(ctx, &tracingv1.SetStatusRequest{
+		SpanId:      resp.SpanId,
+		Code:        1,
+		Description: "failed",
+	})
+	if err != nil {
+		t.Fatalf("SetStatus: %v", err)
+	}
+	_, err = m.EndSpan(ctx, &tracingv1.EndSpanRequest{SpanId: resp.SpanId})
+	if err != nil {
+		t.Fatalf("EndSpan: %v", err)
 	}
 }

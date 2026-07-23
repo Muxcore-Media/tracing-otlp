@@ -1,10 +1,13 @@
 {
   "name": "Tracing OTLP",
-  "description": "In-memory tracing provider that logs completed spans via slog.",
+  "description": "Tracing provider with OTLP export (OTEL_EXPORTER_OTLP_ENDPOINT) and slog fallback.",
   "version": "0.1.0",
   "author": "MuxCore Contributors",
   "roles": [],
-  "capabilities": ["tracing"],
+  "capabilities": [
+    "tracing",
+    "tracing.otlp"
+  ],
   "contracts": [
     {
       "repo": "github.com/Muxcore-Media/core/pkg/contracts",
