@@ -45,7 +45,7 @@ EndSpan completes the span: exports via OTLP when a tracer is configured, otherw
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `TRACING_GRPC_ADDR` | `:9610` | Module gRPC listen address |
+| `TRACING_GRPC_ADDR` | `:9613` | Module gRPC listen address |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | – | OTLP collector endpoint (e.g. `localhost:4317`). When unset, spans are logged via slog |
 | `OTEL_EXPORTER_OTLP_INSECURE` | – | Allow insecure gRPC to the collector (dev) |
 | `MUXCORE_GRPC_ADDR` | – | Core gRPC address |
