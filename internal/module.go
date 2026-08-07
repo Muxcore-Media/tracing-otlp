@@ -86,7 +86,7 @@ func NewModule(cfg Config) *Module {
 		cfg.ID = "tracing-otlp"
 	}
 	if cfg.GRPCAddr == "" {
-		cfg.GRPCAddr = ":9610"
+		cfg.GRPCAddr = ":9613"
 	}
 	if v := os.Getenv("TRACING_GRPC_ADDR"); v != "" {
 		cfg.GRPCAddr = v
