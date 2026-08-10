@@ -255,6 +255,36 @@ func TestOTLPInit(t *testing.T) {
 	}
 }
 
+func TestSettingsOTLPEndpointReload(t *testing.T) {
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_INSECURE", "true")
+	m := NewModule(testConfig())
+	ctx := context.Background()
+	if err := m.Init(ctx); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	defer func() { _ = m.Stop(ctx) }()
+	if m.tracer != nil {
+		t.Fatal("expected slog mode initially")
+	}
+	defs := m.Settings()
+	if len(defs) != 1 || defs[0].Key != "otlp_endpoint" || defs[0].Value != "" {
+		t.Fatalf("Settings() = %+v", defs)
+	}
+	if err := m.UpdateSetting("otlp_endpoint", "localhost:4317"); err != nil {
+		t.Fatal(err)
+	}
+	if m.tracer == nil || m.endpoint != "localhost:4317" {
+		t.Fatalf("expected OTLP after update endpoint=%q tracer=%v", m.endpoint, m.tracer != nil)
+	}
+	if err := m.UpdateSetting("otlp_endpoint", ""); err != nil {
+		t.Fatal(err)
+	}
+	if m.tracer != nil || m.endpoint != "" {
+		t.Fatal("expected slog fallback after clearing endpoint")
+	}
+}
+
 // TestOTLPCollectorRoundTrip exports a completed span to a live OTLP collector
 // (CI: jaegertracing/all-in-one on :4317). Skips when the endpoint is unreachable.
 func TestOTLPCollectorRoundTrip(t *testing.T) {

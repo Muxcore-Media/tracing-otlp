@@ -1,7 +1,7 @@
 {
   "name": "Tracing OTLP",
   "description": "Tracing provider with OTLP export (OTEL_EXPORTER_OTLP_ENDPOINT) and slog fallback.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "author": "MuxCore Contributors",
   "roles": [
     "infrastructure",
