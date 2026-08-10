@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 
 	"github.com/Muxcore-Media/core/pkg/contracts"
 	tracingv1 "github.com/Muxcore-Media/core/proto/gen/muxcore/tracing/v1"
+	modulesdk "github.com/Muxcore-Media/core/sdk/go/module"
 )
 
 type spanData struct {
@@ -71,6 +73,7 @@ type Module struct {
 
 	id       string
 	grpcAddr string
+	endpoint string
 
 	tp     *sdktrace.TracerProvider
 	tracer trace.Tracer
@@ -94,6 +97,7 @@ func NewModule(cfg Config) *Module {
 	return &Module{
 		id:       cfg.ID,
 		grpcAddr: cfg.GRPCAddr,
+		endpoint: strings.TrimSpace(os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")),
 		spans:    make(map[string]*spanData),
 	}
 }
@@ -102,7 +106,7 @@ func (m *Module) Info() contracts.ModuleInfo {
 	return contracts.ModuleInfo{
 		ID:           m.id,
 		Name:         "Tracing OTLP",
-		Version:      "0.1.2",
+		Version:      "0.1.3",
 		Roles:        []string{"infrastructure", "observability"},
 		Description:  "Tracing provider with OTLP export (OTEL_EXPORTER_OTLP_ENDPOINT) and slog fallback.",
 		Author:       "MuxCore Contributors",
@@ -122,13 +126,13 @@ func (m *Module) Init(ctx context.Context) error {
 	}
 	m.lis = lis
 
-	if os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") != "" {
+	if m.endpoint != "" {
 		if err := m.initOTLP(ctx); err != nil {
 			_ = lis.Close()
 			m.lis = nil
 			return err
 		}
-		slog.Info("tracing-otlp OTLP export enabled", "endpoint", os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))
+		slog.Info("tracing-otlp OTLP export enabled", "endpoint", m.endpoint)
 	} else {
 		slog.Info("tracing-otlp using slog fallback (OTEL_EXPORTER_OTLP_ENDPOINT unset)")
 	}
@@ -138,7 +142,17 @@ func (m *Module) Init(ctx context.Context) error {
 }
 
 func (m *Module) initOTLP(ctx context.Context) error {
-	exporter, err := otlptracegrpc.New(ctx)
+	m.mu.Lock()
+	endpoint := m.endpoint
+	m.mu.Unlock()
+	opts := []otlptracegrpc.Option{}
+	if endpoint != "" {
+		opts = append(opts, otlptracegrpc.WithEndpoint(endpoint))
+		if os.Getenv("OTEL_EXPORTER_OTLP_INSECURE") == "true" {
+			opts = append(opts, otlptracegrpc.WithInsecure())
+		}
+	}
+	exporter, err := otlptracegrpc.New(ctx, opts...)
 	if err != nil {
 		return fmt.Errorf("otlp exporter: %w", err)
 	}
@@ -156,14 +170,17 @@ func (m *Module) initOTLP(ctx context.Context) error {
 		sdktrace.WithBatcher(exporter),
 		sdktrace.WithResource(res),
 	)
+	m.mu.Lock()
 	m.tp = tp
 	m.tracer = tp.Tracer(m.id)
+	m.mu.Unlock()
 	return nil
 }
 
 func (m *Module) Start(ctx context.Context) error {
 	m.grpcSrv = grpc.NewServer()
 	tracingv1.RegisterTracingServiceServer(m.grpcSrv, m)
+	modulesdk.RegisterSettings(m.grpcSrv, m.id, m)
 	go func() {
 		slog.Info("tracing-otlp gRPC started", "addr", m.grpcAddr)
 		if err := m.grpcSrv.Serve(m.lis); err != nil {
@@ -207,12 +224,16 @@ func (m *Module) StartSpan(ctx context.Context, req *tracingv1.StartSpanRequest)
 		module:     m,
 	}
 
-	if m.tracer != nil {
+	m.mu.Lock()
+	tracer := m.tracer
+	m.mu.Unlock()
+
+	if tracer != nil {
 		otelAttrs := make([]attribute.KeyValue, 0, len(attrs))
 		for k, v := range attrs {
 			otelAttrs = append(otelAttrs, attribute.String(k, v))
 		}
-		_, span := m.tracer.Start(ctx, req.GetName(), trace.WithAttributes(otelAttrs...))
+		_, span := tracer.Start(ctx, req.GetName(), trace.WithAttributes(otelAttrs...))
 		sc := span.SpanContext()
 		sd.SpanID = sc.SpanID().String()
 		sd.TraceID = sc.TraceID().String()
