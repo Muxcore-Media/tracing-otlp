@@ -2,7 +2,10 @@ package internal
 
 import (
 	"context"
+	"net"
+	"os"
 	"testing"
+	"time"
 
 	tracingv1 "github.com/Muxcore-Media/core/proto/gen/muxcore/tracing/v1"
 )
@@ -37,6 +40,13 @@ func TestModuleInfo(t *testing.T) {
 	}
 	if !found {
 		t.Error("Capabilities must include 'tracing'")
+	}
+	roles := map[string]bool{}
+	for _, r := range info.Roles {
+		roles[r] = true
+	}
+	if !roles["infrastructure"] || !roles["observability"] {
+		t.Errorf("Roles = %v, want infrastructure+observability", info.Roles)
 	}
 }
 
@@ -242,5 +252,47 @@ func TestOTLPInit(t *testing.T) {
 	_, err = m.EndSpan(ctx, &tracingv1.EndSpanRequest{SpanId: resp.SpanId})
 	if err != nil {
 		t.Fatalf("EndSpan: %v", err)
+	}
+}
+
+// TestOTLPCollectorRoundTrip exports a completed span to a live OTLP collector
+// (CI: jaegertracing/all-in-one on :4317). Skips when the endpoint is unreachable.
+func TestOTLPCollectorRoundTrip(t *testing.T) {
+	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	if endpoint == "" {
+		endpoint = "localhost:4317"
+		t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", endpoint)
+		t.Setenv("OTEL_EXPORTER_OTLP_INSECURE", "true")
+	}
+	conn, err := net.DialTimeout("tcp", endpoint, 500*time.Millisecond)
+	if err != nil {
+		t.Skipf("OTLP collector not reachable at %s: %v", endpoint, err)
+	}
+	_ = conn.Close()
+
+	m := NewModule(testConfig())
+	ctx := context.Background()
+	if err := m.Init(ctx); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	defer func() { _ = m.Stop(ctx) }()
+	if m.tp == nil {
+		t.Fatal("expected TracerProvider against live collector")
+	}
+
+	resp, err := m.StartSpan(ctx, &tracingv1.StartSpanRequest{
+		Name:       "collector-roundtrip",
+		Attributes: map[string]string{"test": "collector"},
+	})
+	if err != nil {
+		t.Fatalf("StartSpan: %v", err)
+	}
+	if _, err := m.EndSpan(ctx, &tracingv1.EndSpanRequest{SpanId: resp.SpanId}); err != nil {
+		t.Fatalf("EndSpan: %v", err)
+	}
+	flushCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	if err := m.tp.ForceFlush(flushCtx); err != nil {
+		t.Fatalf("ForceFlush to collector: %v", err)
 	}
 }
