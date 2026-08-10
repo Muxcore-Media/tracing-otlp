@@ -102,7 +102,7 @@ func (m *Module) Info() contracts.ModuleInfo {
 	return contracts.ModuleInfo{
 		ID:           m.id,
 		Name:         "Tracing OTLP",
-		Version:      "0.1.0",
+		Version:      "0.1.2",
 		Roles:        []string{"infrastructure", "observability"},
 		Description:  "Tracing provider with OTLP export (OTEL_EXPORTER_OTLP_ENDPOINT) and slog fallback.",
 		Author:       "MuxCore Contributors",
