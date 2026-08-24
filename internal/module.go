@@ -26,15 +26,15 @@ import (
 )
 
 type spanData struct {
+	otelSpan trace.Span
+	module   *Module
+
 	SpanID            string
 	TraceID           string
 	Name              string
 	Attributes        map[string]string
-	StatusCode        int32
 	StatusDescription string
-
-	otelSpan trace.Span
-	module   *Module
+	StatusCode        int32
 }
 
 func (s *spanData) SetAttribute(key, value string) {
@@ -52,7 +52,7 @@ func (s *spanData) SetAttribute(key, value string) {
 func (s *spanData) SetStatus(code contracts.SpanStatusCode, desc string) {
 	s.module.mu.Lock()
 	defer s.module.mu.Unlock()
-	s.StatusCode = int32(code)
+	s.StatusCode = int32(code) //nolint:gosec // SpanStatusCode is a small enum (0, 1)
 	s.StatusDescription = desc
 	if s.otelSpan != nil {
 		applyOTELStatus(s.otelSpan, s.StatusCode, desc)
@@ -63,10 +63,13 @@ func (s *spanData) End() {
 	s.module.endSpanByID(s.SpanID)
 }
 
-type Module struct {
+type Module struct { //nolint:govet // fieldalignment: lifecycle fields grouped for readability
 	tracingv1.UnimplementedTracingServiceServer
 	grpcSrv *grpc.Server
 	lis     net.Listener
+
+	tp     *sdktrace.TracerProvider
+	tracer trace.Tracer
 
 	mu    sync.Mutex
 	spans map[string]*spanData
@@ -74,9 +77,6 @@ type Module struct {
 	id       string
 	grpcAddr string
 	endpoint string
-
-	tp     *sdktrace.TracerProvider
-	tracer trace.Tracer
 }
 
 type Config struct {
@@ -120,7 +120,8 @@ func (m *Module) Info() contracts.ModuleInfo {
 }
 
 func (m *Module) Init(ctx context.Context) error {
-	lis, err := net.Listen("tcp", m.grpcAddr)
+	var lc net.ListenConfig
+	lis, err := lc.Listen(ctx, "tcp", m.grpcAddr)
 	if err != nil {
 		return fmt.Errorf("listen %s: %w", m.grpcAddr, err)
 	}
