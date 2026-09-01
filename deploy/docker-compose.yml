@@ -1,29 +1,17 @@
 services:
-  core:
-    image: ghcr.io/muxcore-media/core:latest
-    ports:
-      - "9090:9090"
-    environment:
-      MUXCORE_INSECURE_DISABLE_TLS: "true"
-      MUXCORE_LOG_LEVEL: debug
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--tries=1", "--spider", "http://localhost:9090/health"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-      start_period: 5s
-
   tracing-otlp:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: _mvp/dockerfiles/module.Dockerfile
+      args:
+        MODULE: tracing-otlp
     ports:
-      - "9613"
+      - "9613:9613"
     environment:
+      TRACING_GRPC_ADDR: "127.0.0.1:9613"
       MUXCORE_GRPC_ADDR: core:9090
       MUXCORE_INSECURE_DISABLE_TLS: "true"
       MUXCORE_LOG_LEVEL: debug
       MUXCORE_MODULE_ID: tracing-otlp
-    depends_on:
-      core:
-        condition: service_healthy
+    # No OTLP collector bundled — spans log via slog unless you set OTEL_EXPORTER_OTLP_ENDPOINT
+    # and point at your own Tempo/Jaeger/collector service.

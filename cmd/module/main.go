@@ -9,7 +9,10 @@ import (
 	"github.com/Muxcore-Media/tracing-otlp/internal"
 )
 
+var version = internal.Version
+
 func main() {
+	slog.Info("tracing-otlp starting", "version", version)
 	mod := internal.NewModule(internal.Config{})
 	insecure := os.Getenv("MUXCORE_INSECURE_DISABLE_TLS") == "true" || os.Getenv("MUXCORE_GRPC_INSECURE") == "true"
 	if err := modulesdk.Run(modulesdk.Config{

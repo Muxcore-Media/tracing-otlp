@@ -13,6 +13,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] — 2026-08-31
+
+### Added
+
+- `pkg/client` implementing `contracts.TracingProvider` over gRPC; document `FindByCapability("tracing")` + dial.
+- Parent `trace_id` / `parent_span_id` on `StartSpan` (proto + module).
+- Active-span cap (10k) and one-hour TTL eviction.
+- gRPC auth (mesh identity or module token); default bind `127.0.0.1:9613`.
+- Slog attribute redaction for token/authorization/cookie/password/secret keys.
+- Live settings: `otlp_insecure`, `otlp_headers`.
+- In-process OTLP collector test fixture (no Docker/Jaeger skip).
+- Forgejo CI: sibling `core` checkout, `golangci-lint`, `go test -race`.
+
+### Changed
+
+- `Health` fails when gRPC is down or OTLP `ForceFlush` fails.
+- Docker/compose: build from workspace `_mvp/dockerfiles/module.Dockerfile`; drop GHCR install path.
+- Docs/version alignment: `0.1.5`, core `0.5.8`, Forgejo CI badge, `_mvp/PORTS.md` `:9613`, `MVP_ENABLE_TRACING_OTLP`.
+
 ## [0.1.3] — 2026-08-10
 
 ### Added

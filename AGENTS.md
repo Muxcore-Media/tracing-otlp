@@ -7,8 +7,20 @@ MuxCore sidecar module (`tracing-otlp`). Workspace deploy and SSH: [`../AGENTS.m
 | Field | Value |
 |-------|-------|
 | Directory | `tracing-otlp` |
-| Capabilities | see muxcore.json |
-| Contracts | none declared |
+| Capabilities | `tracing`, `tracing.otlp`, `settings` |
+| Contracts | `TracingProvider` (`github.com/Muxcore-Media/core/pkg/contracts`) |
+
+## Client usage
+
+Discover via mesh `FindByCapability(ctx, "tracing")`, dial `mod.GetHttpAddr()` (default `127.0.0.1:9613`), then:
+
+```go
+import traceclient "github.com/Muxcore-Media/tracing-otlp/pkg/client"
+
+cl := traceclient.New(conn)
+ctx, span := cl.StartSpan(ctx, "operation")
+defer span.End()
+```
 
 ## Agent rules
 
@@ -22,5 +34,5 @@ MuxCore sidecar module (`tracing-otlp`). Workspace deploy and SSH: [`../AGENTS.m
 
 ```bash
 cd tracing-otlp
-go test ./...
+nix-shell -p go --run 'go test ./...'
 ```

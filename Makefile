@@ -26,12 +26,7 @@ tidy:
 	$(GO) mod tidy
 
 docker:
-	docker build -t ghcr.io/muxcore-media/$(BINARY):$(VERSION) .
-	docker tag ghcr.io/muxcore-media/$(BINARY):$(VERSION) ghcr.io/muxcore-media/$(BINARY):latest
-
-docker-push: docker
-	docker push ghcr.io/muxcore-media/$(BINARY):$(VERSION)
-	docker push ghcr.io/muxcore-media/$(BINARY):latest
+	@echo "Build from workspace root: docker build -f _mvp/dockerfiles/module.Dockerfile --build-arg MODULE=tracing-otlp -t muxcore/tracing-otlp:$(VERSION) ."
 
 ci: lint test build
 
