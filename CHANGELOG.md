@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Inbound gRPC listener now uses TLS by default on `127.0.0.1:9613` (umbrella#55).
+- Auto-generate dev certificates under `~/.muxcore/tls/tracing-otlp` when no cert paths are configured.
+- Plaintext gRPC available only when `MUXCORE_INSECURE_DISABLE_TLS` or `MUXCORE_GRPC_INSECURE` is set.
+
 ## [0.1.3] — 2026-08-10
 
 ### Added
