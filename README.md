@@ -8,6 +8,8 @@
 
 A MuxCore sidecar module that implements the TracingProvider contract. Spans are held in memory while active. When `OTEL_EXPORTER_OTLP_ENDPOINT` is set, completed spans are exported over OTLP/gRPC. When unset, EndSpan logs via slog.
 
+The gRPC listener uses TLS by default on `127.0.0.1:9613`. Auto-generated dev certificates are stored under `~/.muxcore/tls/tracing-otlp` unless overridden. Set `MUXCORE_INSECURE_DISABLE_TLS=true` for plaintext dev mode only.
+
 ---
 
 ## How It Works
@@ -45,11 +47,16 @@ EndSpan completes the span: exports via OTLP when a tracer is configured, otherw
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `TRACING_GRPC_ADDR` | `:9613` | Module gRPC listen address |
+| `TRACING_GRPC_ADDR` | `127.0.0.1:9613` | Module gRPC listen address (loopback by default) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | – | OTLP collector endpoint (e.g. `localhost:4317`). When unset, spans are logged via slog |
 | `OTEL_EXPORTER_OTLP_INSECURE` | – | Allow insecure gRPC to the collector (dev) |
 | `MUXCORE_GRPC_ADDR` | – | Core gRPC address |
-| `MUXCORE_INSECURE_DISABLE_TLS` | – | Disable TLS (dev mode) |
+| `MUXCORE_INSECURE_DISABLE_TLS` | – | Disable inbound/outbound gRPC TLS (dev only) |
+| `MUXCORE_GRPC_INSECURE` | – | Alias for `MUXCORE_INSECURE_DISABLE_TLS` |
+| `TRACING_TLS_CERT` | auto | Server certificate path (falls back to `MUXCORE_TLS_CERT`) |
+| `TRACING_TLS_KEY` | auto | Server private key path (falls back to `MUXCORE_TLS_KEY`) |
+| `TRACING_TLS_CA` | auto | Client CA bundle for mTLS (falls back to `MUXCORE_TLS_CA`) |
+| `TRACING_TLS_DIR` | `~/.muxcore/tls/tracing-otlp` | Directory for auto-generated dev certificates |
 | `MUXCORE_MODULE_ID` | `tracing-otlp` | Module identity |
 
 ---
