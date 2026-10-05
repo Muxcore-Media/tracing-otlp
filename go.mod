@@ -3,9 +3,9 @@ module github.com/Muxcore-Media/tracing-otlp
 go 1.26.6
 
 require (
-	github.com/Muxcore-Media/core v0.6.0
+	github.com/Muxcore-Media/core v0.6.12
 	github.com/Muxcore-Media/core/pkg/contracts v0.6.0
-	github.com/Muxcore-Media/core/sdk/go/module v0.6.0
+	github.com/Muxcore-Media/core/sdk/go/module v0.6.3
 	go.opentelemetry.io/otel v1.44.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.44.0
 	go.opentelemetry.io/otel/sdk v1.44.0

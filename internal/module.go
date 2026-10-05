@@ -24,6 +24,7 @@ import (
 	"github.com/Muxcore-Media/core/pkg/contracts"
 	tracingv1 "github.com/Muxcore-Media/core/proto/gen/muxcore/tracing/v1"
 	modulesdk "github.com/Muxcore-Media/core/sdk/go/module"
+	manifest "github.com/Muxcore-Media/tracing-otlp"
 	"github.com/Muxcore-Media/tracing-otlp/internal/grpctls"
 )
 
@@ -109,7 +110,7 @@ func (m *Module) Info() contracts.ModuleInfo {
 	return contracts.ModuleInfo{
 		ID:           m.id,
 		Name:         "Tracing OTLP",
-		Version:      "0.1.4",
+		Version:      modulesdk.ManifestVersion(manifest.ManifestJSON),
 		Roles:        []string{"infrastructure", "observability"},
 		Description:  "Tracing provider with OTLP export (OTEL_EXPORTER_OTLP_ENDPOINT) and slog fallback.",
 		Author:       "MuxCore Contributors",
