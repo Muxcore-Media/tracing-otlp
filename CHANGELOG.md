@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-10-05
+
+### Changed
+- CI runs on GitHub-hosted runners from the umbrella template; retired-origin workflows removed.
+- Dependencies resolve from published GitHub tags (no filesystem `replace`); requires core v0.6.0.
+
 ### Changed
 
 - Inbound gRPC listener now uses TLS by default on `127.0.0.1:9613` (umbrella#55).
